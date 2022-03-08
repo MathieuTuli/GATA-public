@@ -3,7 +3,7 @@ general:
   random_seed: 42
   use_this_many_data: -1
   use_cuda: True  # disable this when running on machine without cuda
-  visdom: True
+  visdom: False
 
   training:
     batch_size: 25
@@ -27,8 +27,8 @@ general:
     report_frequency: 1000  # episode
     save_frequency: 1000  # episode
     experiment_tag: 'gata_gtp_rl'
-    load_pretrained: False  # during test, enable this so that the agent load your pretrained model
-    load_from_tag: 'not loading anything'  # to switch pre-trained graph updater, change this to gata_pretrain_obs_infomax_model
+    load_pretrained: true  # during test, enable this so that the agent load your pretrained model
+    load_from_tag: 'gata_gtp_pretrain_cmd_gen_model'  # to switch pre-trained graph updater, change this to gata_pretrain_obs_infomax_model
     load_parameter_keywords: ["rgcns", "word_embedding", "node_embedding", "relation_embedding", "word_embedding_prj"]
     load_graph_generation_model_from_tag: 'gata_gtp_pretrain_cmd_gen_model'
 
@@ -81,7 +81,7 @@ dgi:
 
 rl:
   data_path: "rl.0.2"
-  difficulty_level: 1  # 1-10
+  difficulty_level: 5  # 1-10
   training_size: 20  # 1, 20, 100
   fully_observable_graph: False  # use fully observable graph
 

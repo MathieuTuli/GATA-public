@@ -16,7 +16,8 @@ def compute_mask(x):
 def to_one_hot(y_true, n_classes):
     # y_true: batch x time
     batch_size, length = y_true.size(0), y_true.size(1)
-    y_onehot = torch.FloatTensor(batch_size, length, n_classes)  # batch x time x n_class
+    y_onehot = torch.FloatTensor(
+        batch_size, length, n_classes)  # batch x time x n_class
     if y_true.is_cuda:
         y_onehot = y_onehot.cuda()
     y_onehot.zero_()
@@ -35,7 +36,9 @@ def NegativeLogLoss(y_pred, y_true, mask=None, smoothing_eps=0.0):
     """
     y_true_onehot = to_one_hot(y_true, y_pred.size(-1))  # batch x time x vocab
     if smoothing_eps > 0.0:
-        y_true_onehot = y_true_onehot * (1.0 - smoothing_eps) + (1.0 - y_true_onehot) * smoothing_eps / (y_pred.size(-1) - 1)
+        y_true_onehot = y_true_onehot * \
+            (1.0 - smoothing_eps) + (1.0 - y_true_onehot) * \
+            smoothing_eps / (y_pred.size(-1) - 1)
     P = y_true_onehot * y_pred  # batch x time x vocab
     P = torch.sum(P, dim=-1)  # batch x time
     gt_zero = torch.gt(P, 0.0).float()  # batch x time
@@ -46,7 +49,7 @@ def NegativeLogLoss(y_pred, y_true, mask=None, smoothing_eps=0.0):
     output = -torch.sum(log_P, dim=1)  # batch
     return output
 
-    
+
 def NLL(y_pred, y_true_onehot, mask=None):
     """
     Shape:
@@ -107,10 +110,10 @@ def masked_ave_aggregator(x, mask):
     mask: tensor: batch x num_nodes
 
     """
-    mask_sum = torch.sum(mask, -1).unsqueeze(-1) # batch x 1
-    mask = mask.unsqueeze(-1) # batch x num_nodes x 1
-    mask = mask.expand(-1, -1, x.shape[-1]) # batch x num_nodes x dim
-    masked_x = x * mask # batch x num_nodes x dim
+    mask_sum = torch.sum(mask, -1).unsqueeze(-1)  # batch x 1
+    mask = mask.unsqueeze(-1)  # batch x num_nodes x 1
+    mask = mask.expand(-1, -1, x.shape[-1])  # batch x num_nodes x dim
+    masked_x = x * mask  # batch x num_nodes x dim
     sum_masked_x = torch.sum(masked_x, 1)
     ave_masked_x = sum_masked_x / mask_sum
     return ave_masked_x
@@ -140,7 +143,8 @@ class H5EmbeddingManager(object):
     def __init__(self, h5_path):
         f = h5py.File(h5_path, 'r')
         self.W = np.array(f['embedding'])
-        print("embedding data type=%s, shape=%s" % (type(self.W), self.W.shape))
+        print("embedding data type=%s, shape=%s" %
+              (type(self.W), self.W.shape))
         id2word = f['words_flatten'][0].split(b'\n')
         self.id2word = [item.decode("utf-8") for item in id2word]
         self.word2id = dict(zip(self.id2word, range(len(self.id2word))))
@@ -162,7 +166,8 @@ class H5EmbeddingManager(object):
         elif 'one' == oov_init:
             W2V = np.ones(shape, dtype='float32')
         else:
-            W2V = self.rng.uniform(low=-scale, high=scale, size=shape).astype('float32')
+            W2V = self.rng.uniform(
+                low=-scale, high=scale, size=shape).astype('float32')
         W2V[0, :] = 0
         in_vocab = np.ones(shape[0], dtype=np.bool)
         word_ids = []
@@ -193,7 +198,8 @@ class Embedding(torch.nn.Module):
         self.embedding_oov_init = embedding_oov_init
         self.pretrained_embedding_path = pretrained_embedding_path
         self.trainable = trainable
-        self.embedding_layer = torch.nn.Embedding(self.vocab_size, self.embedding_size, padding_idx=0)
+        self.embedding_layer = torch.nn.Embedding(
+            self.vocab_size, self.embedding_size, padding_idx=0)
         self.init_weights()
 
     def init_weights(self):
@@ -207,10 +213,12 @@ class Embedding(torch.nn.Module):
     def embedding_init(self):
         # Embeddings
         if self.load_pretrained is False:
-            word_embedding_init = np.random.uniform(low=-0.05, high=0.05, size=(self.vocab_size, self.embedding_size))
+            word_embedding_init = np.random.uniform(
+                low=-0.05, high=0.05, size=(self.vocab_size, self.embedding_size))
             word_embedding_init[0, :] = 0
         else:
-            embedding_initr = H5EmbeddingManager(self.pretrained_embedding_path)
+            embedding_initr = H5EmbeddingManager(
+                self.pretrained_embedding_path)
             word_embedding_init = embedding_initr.word_embedding_initialize(self.id2word,
                                                                             dim_size=self.embedding_size,
                                                                             oov_init=self.embedding_oov_init)
@@ -226,7 +234,8 @@ class Embedding(torch.nn.Module):
 
     def forward(self, x):
         embeddings = self.embedding_layer(x)  # batch x time x emb
-        embeddings = F.dropout(embeddings, p=self.dropout_rate, training=self.training)
+        embeddings = F.dropout(
+            embeddings, p=self.dropout_rate, training=self.training)
         mask = self.compute_mask(x)  # batch x time
         return embeddings, mask
 
@@ -257,7 +266,8 @@ class FastUniLSTM(torch.nn.Module):
 
         def pad_(tensor, n):
             if n > 0:
-                zero_pad = torch.autograd.Variable(torch.zeros((n,) + tensor.size()[1:]))
+                zero_pad = torch.autograd.Variable(
+                    torch.zeros((n,) + tensor.size()[1:]))
                 if x.is_cuda:
                     zero_pad = zero_pad.cuda()
                 tensor = torch.cat([tensor, zero_pad])
@@ -310,7 +320,8 @@ class FastUniLSTM(torch.nn.Module):
             outputs.append(seq)
             if i == self.nlayers - 1:
                 # last layer
-                last_state = last[0]  # (num_layers * num_directions, batch, hidden_size)
+                # (num_layers * num_directions, batch, hidden_size)
+                last_state = last[0]
                 last_state = last_state[0]  # batch x hidden_size
 
         # Unpack everything
@@ -365,7 +376,8 @@ class FastBiLSTM(torch.nn.Module):
 
         def pad_(tensor, n):
             if n > 0:
-                zero_pad = torch.autograd.Variable(torch.zeros((n,) + tensor.size()[1:]))
+                zero_pad = torch.autograd.Variable(
+                    torch.zeros((n,) + tensor.size()[1:]))
                 if x.is_cuda:
                     zero_pad = zero_pad.cuda()
                 tensor = torch.cat([tensor, zero_pad])
@@ -418,8 +430,10 @@ class FastBiLSTM(torch.nn.Module):
             outputs.append(seq)
             if i == self.nlayers - 1:
                 # last layer
-                last_state = last[0]  # (num_layers * num_directions, batch, hidden_size)
-                last_state = torch.cat([last_state[0], last_state[1]], 1)  # batch x hid_f+hid_b
+                # (num_layers * num_directions, batch, hidden_size)
+                last_state = last[0]
+                # batch x hid_f+hid_b
+                last_state = torch.cat([last_state[0], last_state[1]], 1)
 
         # Unpack everything
         for i, o in enumerate(outputs[1:], 1):
@@ -460,10 +474,12 @@ class LSTMCell(torch.nn.Module):
         self.input_size = input_size
         self.hidden_size = hidden_size
         self.use_bias = use_bias
-        self.pre_act_linear = torch.nn.Linear(input_size + hidden_size, 4 * hidden_size, bias=False)
+        self.pre_act_linear = torch.nn.Linear(
+            input_size + hidden_size, 4 * hidden_size, bias=False)
         if use_bias:
             self.bias_f = torch.nn.Parameter(torch.FloatTensor(hidden_size))
-            self.bias_iog = torch.nn.Parameter(torch.FloatTensor(3 * hidden_size))
+            self.bias_iog = torch.nn.Parameter(
+                torch.FloatTensor(3 * hidden_size))
         else:
             self.register_parameter('bias', None)
         self.reset_parameters()
@@ -475,8 +491,10 @@ class LSTMCell(torch.nn.Module):
             self.bias_iog.data.fill_(0.0)
 
     def get_init_hidden(self, bsz, use_cuda):
-        h_0 = torch.autograd.Variable(torch.FloatTensor(bsz, self.hidden_size).zero_())
-        c_0 = torch.autograd.Variable(torch.FloatTensor(bsz, self.hidden_size).zero_())
+        h_0 = torch.autograd.Variable(
+            torch.FloatTensor(bsz, self.hidden_size).zero_())
+        c_0 = torch.autograd.Variable(
+            torch.FloatTensor(bsz, self.hidden_size).zero_())
         if use_cuda:
             h_0, c_0 = h_0.cuda(), c_0.cuda()
         return h_0, c_0
@@ -493,21 +511,25 @@ class LSTMCell(torch.nn.Module):
             h_1, c_1: Tensors containing the next hidden and cell state.
         """
         if h_0 is None or c_0 is None:
-            h_init, c_init = self.get_init_hidden(input_.size(0), use_cuda=input_.is_cuda)
+            h_init, c_init = self.get_init_hidden(
+                input_.size(0), use_cuda=input_.is_cuda)
             if h_0 is None:
                 h_0 = h_init
             if c_0 is None:
                 c_0 = c_init
-        
+
         if mask_ is None:
             mask_ = torch.ones_like(torch.sum(input_, -1))
             if input_.is_cuda:
                 mask_ = mask_.cuda()
 
-        pre_act = self.pre_act_linear(torch.cat([input_, h_0], -1))  # batch x 4*hid
+        pre_act = self.pre_act_linear(
+            torch.cat([input_, h_0], -1))  # batch x 4*hid
         if self.use_bias:
-            pre_act = pre_act + torch.cat([self.bias_f, self.bias_iog]).unsqueeze(0)
-        f, i, o, g = torch.split(pre_act, split_size_or_sections=self.hidden_size, dim=1)
+            pre_act = pre_act + \
+                torch.cat([self.bias_f, self.bias_iog]).unsqueeze(0)
+        f, i, o, g = torch.split(
+            pre_act, split_size_or_sections=self.hidden_size, dim=1)
         expand_mask_ = mask_.unsqueeze(1)  # batch x 1
         c_1 = torch.sigmoid(f) * c_0 + torch.sigmoid(i) * torch.tanh(g)
         c_1 = c_1 * expand_mask_ + c_0 * (1 - expand_mask_)
@@ -538,10 +560,14 @@ class MatchLSTMAttention(torch.nn.Module):
         self.output_dim = output_dim
         self.nlayers = len(self.output_dim)
 
-        W_p_r = [torch.nn.Linear(self.output_dim[i] + (self.input_p_dim if i == 0 else self.output_dim[i - 1]), self.output_dim[i]) for i in range(self.nlayers)]
-        W_q = [torch.nn.Linear(self.input_q_dim, self.output_dim[i]) for i in range(self.nlayers)]
-        w = [torch.nn.Parameter(torch.FloatTensor(self.output_dim[i])) for i in range(self.nlayers)]
-        match_b = [torch.nn.Parameter(torch.FloatTensor(1)) for i in range(self.nlayers)]
+        W_p_r = [torch.nn.Linear(self.output_dim[i] + (self.input_p_dim if i ==
+                                 0 else self.output_dim[i - 1]), self.output_dim[i]) for i in range(self.nlayers)]
+        W_q = [torch.nn.Linear(self.input_q_dim, self.output_dim[i])
+               for i in range(self.nlayers)]
+        w = [torch.nn.Parameter(torch.FloatTensor(self.output_dim[i]))
+             for i in range(self.nlayers)]
+        match_b = [torch.nn.Parameter(torch.FloatTensor(1))
+                   for i in range(self.nlayers)]
 
         self.W_p_r = torch.nn.ModuleList(W_p_r)
         self.W_q = torch.nn.ModuleList(W_q)
@@ -559,7 +585,8 @@ class MatchLSTMAttention(torch.nn.Module):
             self.match_b[i].data.fill_(1.0)
 
     def forward(self, input_p, mask_p, input_q, mask_q, h_tm1, depth):
-        G_p_r = self.W_p_r[depth](torch.cat([input_p, h_tm1], -1)).unsqueeze(1)  # batch x None x out
+        G_p_r = self.W_p_r[depth](
+            torch.cat([input_p, h_tm1], -1)).unsqueeze(1)  # batch x None x out
         G_q = self.W_q[depth](input_q)  # batch x time x out
         G = torch.tanh(G_p_r + G_q)  # batch x time x out
         alpha = torch.matmul(G, self.w[depth])  # batch x time
@@ -626,10 +653,13 @@ class StackedMatchLSTM(torch.nn.Module):
                 else:
                     curr_input = state_stp[d - 1][t][0]
                 # apply dropout layer-to-layer
-                drop_input = F.dropout(curr_input, p=self.dropout_between_rnn_layers, training=self.training) if d > 0 else curr_input
+                drop_input = F.dropout(curr_input, p=self.dropout_between_rnn_layers,
+                                       training=self.training) if d > 0 else curr_input
                 previous_h, previous_c = state_stp[d][t]
-                drop_input = self.attention_layer(drop_input, input_mask, input_q, mask_q, h_tm1=previous_h, depth=d)
-                new_h, new_c = rnn(drop_input, input_mask, previous_h, previous_c)
+                drop_input = self.attention_layer(
+                    drop_input, input_mask, input_q, mask_q, h_tm1=previous_h, depth=d)
+                new_h, new_c = rnn(drop_input, input_mask,
+                                   previous_h, previous_c)
                 state_stp[d].append((new_h, new_c))
 
         states = [h[0] for h in state_stp[-1][1:]]  # list of batch x hid
@@ -659,13 +689,15 @@ class BiMatchLSTM(torch.nn.Module):
 
         self.forward_rnn = StackedMatchLSTM(input_p_dim=self.input_p_dim,
                                             input_q_dim=self.input_q_dim,
-                                            nhids=[hid // 2 for hid in self.nhids],
+                                            nhids=[
+                                                hid // 2 for hid in self.nhids],
                                             attention_layer=self.attention_layer,
                                             dropout_between_rnn_layers=dropout_between_rnn_layers)
 
         self.backward_rnn = StackedMatchLSTM(input_p_dim=self.input_p_dim,
                                              input_q_dim=self.input_q_dim,
-                                             nhids=[hid // 2 for hid in self.nhids],
+                                             nhids=[
+                                                 hid // 2 for hid in self.nhids],
                                              attention_layer=self.attention_layer,
                                              dropout_between_rnn_layers=dropout_between_rnn_layers)
 
@@ -675,15 +707,22 @@ class BiMatchLSTM(torch.nn.Module):
         forward_last_state = forward_states[:, -1]  # batch x hid/2
 
         # backward pass
-        input_p_inverted = torch.flip(input_p, dims=[1])  # batch x time x p_dim (backward)
-        mask_p_inverted = torch.flip(mask_p, dims=[1])  # batch x time (backward)
-        backward_states = self.backward_rnn(input_p_inverted, mask_p_inverted, input_q, mask_q)
+        # batch x time x p_dim (backward)
+        input_p_inverted = torch.flip(input_p, dims=[1])
+        mask_p_inverted = torch.flip(
+            mask_p, dims=[1])  # batch x time (backward)
+        backward_states = self.backward_rnn(
+            input_p_inverted, mask_p_inverted, input_q, mask_q)
         backward_last_state = backward_states[:, -1]  # batch x hid/2
-        backward_states = torch.flip(backward_states, dims=[1])  # batch x time x hid/2
+        backward_states = torch.flip(backward_states, dims=[
+                                     1])  # batch x time x hid/2
 
-        concat_states = torch.cat([forward_states, backward_states], -1)  # batch x time x hid
-        concat_states = concat_states * mask_p.unsqueeze(-1)  # batch x time x hid
-        concat_last_state = torch.cat([forward_last_state, backward_last_state], -1)  # batch x hid
+        concat_states = torch.cat(
+            [forward_states, backward_states], -1)  # batch x time x hid
+        concat_states = concat_states * \
+            mask_p.unsqueeze(-1)  # batch x time x hid
+        concat_last_state = torch.cat(
+            [forward_last_state, backward_last_state], -1)  # batch x hid
 
         return concat_states, concat_last_state
 
@@ -802,7 +841,8 @@ class BoundaryDecoderAttention(torch.nn.Module):
         beta = torch.matmul(Fk, self.v)  # batch x time
         beta = beta + self.c.unsqueeze(0)  # batch x time
         beta = masked_softmax(beta, mask_r, axis=-1)  # batch x time
-        z = torch.bmm(beta.view(beta.size(0), 1, beta.size(1)), H_r)  # batch x 1 x inp
+        z = torch.bmm(beta.view(beta.size(0), 1, beta.size(1)),
+                      H_r)  # batch x 1 x inp
         z = z.view(z.size(0), -1)  # batch x inp
         return z, beta
 
@@ -844,7 +884,8 @@ class BoundaryDecoder(torch.nn.Module):
         mask = mask.cuda() if x.is_cuda else mask
         for t in range(2):
             previous_h, previous_c = state_stp[t]
-            curr_input, beta = self.attention_layer(x, x_mask, h_tm1=previous_h)
+            curr_input, beta = self.attention_layer(
+                x, x_mask, h_tm1=previous_h)
             new_h, new_c = self.rnn(curr_input, mask, previous_h, previous_c)
             state_stp.append((new_h, new_c))
             beta_list.append(beta)
@@ -870,9 +911,12 @@ class NoisyLinear(torch.nn.Module):
         self.in_features = in_features
         self.out_features = out_features
         self.std_init = std_init
-        self.weight_mu = torch.nn.Parameter(torch.empty(out_features, in_features))
-        self.weight_sigma = torch.nn.Parameter(torch.empty(out_features, in_features))
-        self.register_buffer('weight_epsilon', torch.empty(out_features, in_features))
+        self.weight_mu = torch.nn.Parameter(
+            torch.empty(out_features, in_features))
+        self.weight_sigma = torch.nn.Parameter(
+            torch.empty(out_features, in_features))
+        self.register_buffer(
+            'weight_epsilon', torch.empty(out_features, in_features))
         self.bias_mu = torch.nn.Parameter(torch.empty(out_features))
         self.bias_sigma = torch.nn.Parameter(torch.empty(out_features))
         self.register_buffer('bias_epsilon', torch.empty(out_features))
@@ -883,9 +927,11 @@ class NoisyLinear(torch.nn.Module):
     def reset_parameters(self):
         mu_range = 1 / math.sqrt(self.in_features)
         self.weight_mu.data.uniform_(-mu_range, mu_range)
-        self.weight_sigma.data.fill_(self.std_init / math.sqrt(self.in_features))
+        self.weight_sigma.data.fill_(
+            self.std_init / math.sqrt(self.in_features))
         self.bias_mu.data.uniform_(-mu_range, mu_range)
-        self.bias_sigma.data.fill_(self.std_init / math.sqrt(self.out_features))
+        self.bias_sigma.data.fill_(
+            self.std_init / math.sqrt(self.out_features))
 
     def _scale_noise(self, size):
         x = torch.randn(size)
@@ -910,7 +956,7 @@ class NoisyLinear(torch.nn.Module):
             return F.linear(input, self.weight_mu, self.bias_mu)
 
 
-################################# qanet
+# qanet
 
 def PosEncoder(x, min_timescale=1.0, max_timescale=1.0e4):
     length = x.size(1)
@@ -922,11 +968,12 @@ def PosEncoder(x, min_timescale=1.0, max_timescale=1.0e4):
 def get_timing_signal(length, channels, min_timescale=1.0, max_timescale=1.0e4):
     position = torch.arange(length).type(torch.float32)
     num_timescales = channels // 2
-    log_timescale_increment = (math.log(float(max_timescale) / float(min_timescale)) / (float(num_timescales)-1))
+    log_timescale_increment = (math.log(
+        float(max_timescale) / float(min_timescale)) / (float(num_timescales)-1))
     inv_timescales = min_timescale * torch.exp(
-            torch.arange(num_timescales).type(torch.float32) * -log_timescale_increment)
+        torch.arange(num_timescales).type(torch.float32) * -log_timescale_increment)
     scaled_time = position.unsqueeze(1) * inv_timescales.unsqueeze(0)
-    signal = torch.cat([torch.sin(scaled_time), torch.cos(scaled_time)], dim = 1)
+    signal = torch.cat([torch.sin(scaled_time), torch.cos(scaled_time)], dim=1)
     m = torch.nn.ZeroPad2d((0, (channels % 2), 0, 0))
     signal = m(signal)
     signal = signal.view(1, length, channels)
@@ -936,13 +983,15 @@ def get_timing_signal(length, channels, min_timescale=1.0, max_timescale=1.0e4):
 class DepthwiseSeparableConv(torch.nn.Module):
     def __init__(self, in_ch, out_ch, k, bias=True):
         super().__init__()
-        self.depthwise_conv = torch.nn.Conv1d(in_channels=in_ch, out_channels=in_ch, kernel_size=k, groups=in_ch, padding=k // 2, bias=False)
-        self.pointwise_conv = torch.nn.Conv1d(in_channels=in_ch, out_channels=out_ch, kernel_size=1, padding=0, bias=bias)
+        self.depthwise_conv = torch.nn.Conv1d(
+            in_channels=in_ch, out_channels=in_ch, kernel_size=k, groups=in_ch, padding=k // 2, bias=False)
+        self.pointwise_conv = torch.nn.Conv1d(
+            in_channels=in_ch, out_channels=out_ch, kernel_size=1, padding=0, bias=bias)
 
     def forward(self, x):
-        x = x.transpose(1,2)
+        x = x.transpose(1, 2)
         res = torch.relu(self.pointwise_conv(self.depthwise_conv(x)))
-        res = res.transpose(1,2)
+        res = res.transpose(1, 2)
         return res
 
 
@@ -950,13 +999,15 @@ class SimpleSelfAttention(torch.nn.Module):
     def __init__(self, hidden_size):
         super(SimpleSelfAttention, self).__init__()
         self.hidden_size = hidden_size
-        self.att_weights = torch.nn.Parameter(torch.Tensor(hidden_size, 1), requires_grad=True)
+        self.att_weights = torch.nn.Parameter(
+            torch.Tensor(hidden_size, 1), requires_grad=True)
         torch.nn.init.xavier_uniform(self.att_weights.data)
 
     def forward(self, input, mask):
         batch_size = input.size(0)
         # apply attention layer
-        weights = torch.bmm(input, self.att_weights.unsqueeze(0).repeat(batch_size, 1, 1)).squeeze(-1)
+        weights = torch.bmm(input, self.att_weights.unsqueeze(
+            0).repeat(batch_size, 1, 1)).squeeze(-1)
         attentions = masked_softmax(weights, mask)
         # apply attention weights
         weighted = torch.mul(input, attentions.unsqueeze(-1).expand_as(input))
@@ -989,13 +1040,20 @@ class SelfAttention(torch.nn.Module):
 
         self.n_head = n_head
         self.block_hidden_dim = block_hidden_dim
-        self.w_qs = torch.nn.Linear(block_hidden_dim, n_head * block_hidden_dim, bias=False)
-        self.w_ks = torch.nn.Linear(block_hidden_dim, n_head * block_hidden_dim, bias=False)
-        self.w_vs = torch.nn.Linear(block_hidden_dim, n_head * block_hidden_dim, bias=False)
-        torch.nn.init.normal_(self.w_qs.weight, mean=0, std=np.sqrt(2.0 / (block_hidden_dim * 2)))
-        torch.nn.init.normal_(self.w_ks.weight, mean=0, std=np.sqrt(2.0 / (block_hidden_dim * 2)))
-        torch.nn.init.normal_(self.w_vs.weight, mean=0, std=np.sqrt(2.0 / (block_hidden_dim * 2)))
-        self.attention = ScaledDotProductAttention(temperature=np.power(block_hidden_dim, 0.5))
+        self.w_qs = torch.nn.Linear(
+            block_hidden_dim, n_head * block_hidden_dim, bias=False)
+        self.w_ks = torch.nn.Linear(
+            block_hidden_dim, n_head * block_hidden_dim, bias=False)
+        self.w_vs = torch.nn.Linear(
+            block_hidden_dim, n_head * block_hidden_dim, bias=False)
+        torch.nn.init.normal_(self.w_qs.weight, mean=0,
+                              std=np.sqrt(2.0 / (block_hidden_dim * 2)))
+        torch.nn.init.normal_(self.w_ks.weight, mean=0,
+                              std=np.sqrt(2.0 / (block_hidden_dim * 2)))
+        torch.nn.init.normal_(self.w_vs.weight, mean=0,
+                              std=np.sqrt(2.0 / (block_hidden_dim * 2)))
+        self.attention = ScaledDotProductAttention(
+            temperature=np.power(block_hidden_dim, 0.5))
         self.fc = torch.nn.Linear(n_head * block_hidden_dim, block_hidden_dim)
         self.layer_norm = torch.nn.LayerNorm(self.block_hidden_dim)
         torch.nn.init.xavier_normal_(self.fc.weight)
@@ -1012,19 +1070,27 @@ class SelfAttention(torch.nn.Module):
         assert mask.size(2) == len_k
         residual = q
 
-        q = self.w_qs(q).view(batch_size, len_q, self.n_head, self.block_hidden_dim)
-        k = self.w_ks(k).view(batch_size, len_k, self.n_head, self.block_hidden_dim)
-        v = self.w_vs(v).view(batch_size, len_v, self.n_head, self.block_hidden_dim)
+        q = self.w_qs(q).view(batch_size, len_q,
+                              self.n_head, self.block_hidden_dim)
+        k = self.w_ks(k).view(batch_size, len_k,
+                              self.n_head, self.block_hidden_dim)
+        v = self.w_vs(v).view(batch_size, len_v,
+                              self.n_head, self.block_hidden_dim)
 
-        q = q.permute(2, 0, 1, 3).contiguous().view(-1, len_q, self.block_hidden_dim) # (n*b) x lq x dk
-        k = k.permute(2, 0, 1, 3).contiguous().view(-1, len_k, self.block_hidden_dim) # (n*b) x lk x dk
-        v = v.permute(2, 0, 1, 3).contiguous().view(-1, len_v, self.block_hidden_dim) # (n*b) x lv x dv
+        q = q.permute(2, 0, 1, 3).contiguous().view(-1, len_q,
+                                                    self.block_hidden_dim)  # (n*b) x lq x dk
+        k = k.permute(2, 0, 1, 3).contiguous().view(-1, len_k,
+                                                    self.block_hidden_dim)  # (n*b) x lk x dk
+        v = v.permute(2, 0, 1, 3).contiguous().view(-1, len_v,
+                                                    self.block_hidden_dim)  # (n*b) x lv x dv
 
-        mask = mask.repeat(self.n_head, 1, 1) # (n*b) x .. x ..
+        mask = mask.repeat(self.n_head, 1, 1)  # (n*b) x .. x ..
         output, attn = self.attention(q, k, v, mask=mask)
 
-        output = output.view(self.n_head, batch_size, len_q, self.block_hidden_dim)
-        output = output.permute(1, 2, 0, 3).contiguous().view(batch_size, len_q, -1) # b x lq x (n*dv)
+        output = output.view(self.n_head, batch_size,
+                             len_q, self.block_hidden_dim)
+        output = output.permute(1, 2, 0, 3).contiguous().view(
+            batch_size, len_q, -1)  # b x lq x (n*dv)
         output = self.dropout(self.fc(output))
         output = self.layer_norm(output + residual)
 
@@ -1035,11 +1101,13 @@ class EncoderBlock(torch.nn.Module):
     def __init__(self, conv_num, ch_num, k, block_hidden_dim, n_head, dropout):
         super().__init__()
         self.dropout = dropout
-        self.convs = torch.nn.ModuleList([DepthwiseSeparableConv(ch_num, ch_num, k) for _ in range(conv_num)])
+        self.convs = torch.nn.ModuleList(
+            [DepthwiseSeparableConv(ch_num, ch_num, k) for _ in range(conv_num)])
         self.self_att = SelfAttention(block_hidden_dim, n_head, dropout)
         self.FFN_1 = torch.nn.Linear(ch_num, ch_num)
         self.FFN_2 = torch.nn.Linear(ch_num, ch_num)
-        self.norm_C = torch.nn.ModuleList([torch.nn.LayerNorm(block_hidden_dim) for _ in range(conv_num)])
+        self.norm_C = torch.nn.ModuleList(
+            [torch.nn.LayerNorm(block_hidden_dim) for _ in range(conv_num)])
         self.norm_1 = torch.nn.LayerNorm(block_hidden_dim)
         self.norm_2 = torch.nn.LayerNorm(block_hidden_dim)
         self.conv_num = conv_num
@@ -1054,14 +1122,16 @@ class EncoderBlock(torch.nn.Module):
             if (i) % 2 == 0:
                 out = F.dropout(out, p=self.dropout, training=self.training)
             out = conv(out)
-            out = self.layer_dropout(out, res, self.dropout * float(l) / total_layers)
+            out = self.layer_dropout(
+                out, res, self.dropout * float(l) / total_layers)
             l += 1
         res = out
         out = self.norm_1(out)
         out = F.dropout(out, p=self.dropout, training=self.training)
         # self attention
         out, _ = self.self_att(out, mask, out, out)
-        out = self.layer_dropout(out, res, self.dropout * float(l) / total_layers)
+        out = self.layer_dropout(
+            out, res, self.dropout * float(l) / total_layers)
         l += 1
         res = out
         out = self.norm_2(out)
@@ -1070,7 +1140,8 @@ class EncoderBlock(torch.nn.Module):
         out = self.FFN_1(out)
         out = torch.relu(out)
         out = self.FFN_2(out)
-        out = self.layer_dropout(out, res, self.dropout * float(l) / total_layers)
+        out = self.layer_dropout(
+            out, res, self.dropout * float(l) / total_layers)
         l += 1
         return out
 
@@ -1106,21 +1177,25 @@ class DecoderBlock(torch.nn.Module):
         # self attention
         out, _ = self.self_att(out, self_att_mask, out, out)
         out_self = out * mask.unsqueeze(-1)
-        out = self.layer_dropout(out_self, res, self.dropout * float(l) / total_layers)
+        out = self.layer_dropout(
+            out_self, res, self.dropout * float(l) / total_layers)
         l += 1
         res = out
         out = self.norm_1(out)
         out = F.dropout(out, p=self.dropout, training=self.training)
         # attention with encoder outputs
-        out_obs, obs_attention = self.obs_att(out, obs_mask, obs_enc_representations, obs_enc_representations)
-        out_node, _ = self.node_att(out, node_mask, node_enc_representations, node_enc_representations)
+        out_obs, obs_attention = self.obs_att(
+            out, obs_mask, obs_enc_representations, obs_enc_representations)
+        out_node, _ = self.node_att(
+            out, node_mask, node_enc_representations, node_enc_representations)
 
         out = torch.cat([out_obs, out_node], -1)
         out = self.FFN_0(out)
         out = torch.relu(out)
         out = out * mask.unsqueeze(-1)
 
-        out = self.layer_dropout(out, res, self.dropout * float(l) / total_layers)
+        out = self.layer_dropout(
+            out, res, self.dropout * float(l) / total_layers)
         l += 1
         res = out
         out = self.norm_2(out)
@@ -1130,7 +1205,8 @@ class DecoderBlock(torch.nn.Module):
         out = torch.relu(out)
         out = self.FFN_2(out)
         out = out * mask.unsqueeze(-1)
-        out = self.layer_dropout(out, res, self.dropout * float(l) / total_layers)
+        out = self.layer_dropout(
+            out, res, self.dropout * float(l) / total_layers)
         l += 1
         return out, out_self, out_obs, obs_attention
 
@@ -1166,21 +1242,25 @@ class DecoderBlockForObsGen(torch.nn.Module):
         # self attention
         out, _ = self.self_att(out, self_att_mask, out, out)
         out_self = out * mask.unsqueeze(-1)
-        out = self.layer_dropout(out_self, res, self.dropout * float(l) / total_layers)
+        out = self.layer_dropout(
+            out_self, res, self.dropout * float(l) / total_layers)
         l += 1
         res = out
         out = self.norm_1(out)
         out = F.dropout(out, p=self.dropout, training=self.training)
         # attention with encoder outputs
-        out_obs, obs_attention = self.obs_att(out, prev_action_mask, prev_action_enc_representations, prev_action_enc_representations)
-        out_node, _ = self.node_att(out, node_mask, node_enc_representations, node_enc_representations)
+        out_obs, obs_attention = self.obs_att(
+            out, prev_action_mask, prev_action_enc_representations, prev_action_enc_representations)
+        out_node, _ = self.node_att(
+            out, node_mask, node_enc_representations, node_enc_representations)
 
         out = torch.cat([out_obs, out_node], -1)
         out = self.FFN_0(out)
         out = torch.relu(out)
         out = out * mask.unsqueeze(-1)
 
-        out = self.layer_dropout(out, res, self.dropout * float(l) / total_layers)
+        out = self.layer_dropout(
+            out, res, self.dropout * float(l) / total_layers)
         l += 1
         res = out
         out = self.norm_2(out)
@@ -1190,9 +1270,10 @@ class DecoderBlockForObsGen(torch.nn.Module):
         out = torch.relu(out)
         out = self.FFN_2(out)
         out = out * mask.unsqueeze(-1)
-        out = self.layer_dropout(out, res, self.dropout * float(l) / total_layers)
+        out = self.layer_dropout(
+            out, res, self.dropout * float(l) / total_layers)
         l += 1
-        return out, out_self #, out_obs, obs_attention
+        return out, out_self  # , out_obs, obs_attention
 
     def layer_dropout(self, inputs, residual, dropout):
         if self.training == True:
@@ -1240,7 +1321,8 @@ class CQAttention(torch.nn.Module):
         max_q_len = Q.size(-2)
         max_context_len = C.size(-2)
         subres0 = torch.matmul(C, self.w4C).expand([-1, -1, max_q_len])
-        subres1 = torch.matmul(Q, self.w4Q).transpose(1, 2).expand([-1, max_context_len, -1])
+        subres1 = torch.matmul(Q, self.w4Q).transpose(
+            1, 2).expand([-1, max_context_len, -1])
         subres2 = torch.matmul(C * self.w4mlu, Q.transpose(1, 2))
         res = subres0 + subres1 + subres2
         res += self.bias
@@ -1259,8 +1341,10 @@ class AnswerPointer(torch.nn.Module):
             # self.w_head_2 = NoisyLinear(block_hidden_dim * 2, 1)
             # self.w_tail_2 = NoisyLinear(block_hidden_dim * 2, 1)
         else:
-            self.w_head_1 = torch.nn.Linear(block_hidden_dim * 2, block_hidden_dim)
-            self.w_tail_1 = torch.nn.Linear(block_hidden_dim * 2, block_hidden_dim)
+            self.w_head_1 = torch.nn.Linear(
+                block_hidden_dim * 2, block_hidden_dim)
+            self.w_tail_1 = torch.nn.Linear(
+                block_hidden_dim * 2, block_hidden_dim)
             self.w_head_2 = torch.nn.Linear(block_hidden_dim, 1)
             self.w_tail_2 = torch.nn.Linear(block_hidden_dim, 1)
             # self.w_head_2 = torch.nn.Linear(block_hidden_dim * 2, 1)
@@ -1295,15 +1379,18 @@ class Highway(torch.nn.Module):
         super().__init__()
         self.n = layer_num
         self.dropout = dropout
-        self.linear = torch.nn.ModuleList([torch.nn.Linear(size, size) for _ in range(self.n)])
-        self.gate = torch.nn.ModuleList([torch.nn.Linear(size, size) for _ in range(self.n)])
+        self.linear = torch.nn.ModuleList(
+            [torch.nn.Linear(size, size) for _ in range(self.n)])
+        self.gate = torch.nn.ModuleList(
+            [torch.nn.Linear(size, size) for _ in range(self.n)])
 
     def forward(self, x):
         #x: shape [batch_size, length, hidden_size]
         for i in range(self.n):
             gate = torch.sigmoid(self.gate[i](x))
             nonlinear = self.linear[i](x)
-            nonlinear = F.dropout(nonlinear, p=self.dropout, training=self.training)
+            nonlinear = F.dropout(
+                nonlinear, p=self.dropout, training=self.training)
             x = gate * nonlinear + (1 - gate) * x
         return x
 
@@ -1311,18 +1398,22 @@ class Highway(torch.nn.Module):
 class MergeEmbeddings(torch.nn.Module):
     def __init__(self, block_hidden_dim, word_emb_dim, char_emb_dim, dropout=0):
         super().__init__()
-        self.conv2d = torch.nn.Conv2d(char_emb_dim, block_hidden_dim, kernel_size = (1, 5), padding=0, bias=True)
+        self.conv2d = torch.nn.Conv2d(
+            char_emb_dim, block_hidden_dim, kernel_size=(1, 5), padding=0, bias=True)
         torch.nn.init.kaiming_normal_(self.conv2d.weight, nonlinearity='relu')
 
-        self.linear = torch.nn.Linear(word_emb_dim + block_hidden_dim, block_hidden_dim, bias=False)
+        self.linear = torch.nn.Linear(
+            word_emb_dim + block_hidden_dim, block_hidden_dim, bias=False)
         self.high = Highway(2, size=block_hidden_dim, dropout=dropout)
 
     def forward(self, word_emb, char_emb, mask=None):
         char_emb = char_emb.permute(0, 3, 1, 2)  # batch x emb x time x nchar
-        char_emb = self.conv2d(char_emb)  # batch x block_hidden_dim x time x nchar-5+1
+        # batch x block_hidden_dim x time x nchar-5+1
+        char_emb = self.conv2d(char_emb)
         if mask is not None:
             char_emb = char_emb * mask.unsqueeze(1).unsqueeze(-1)
-        char_emb = F.relu(char_emb)  # batch x block_hidden_dim x time x nchar-5+1
+        # batch x block_hidden_dim x time x nchar-5+1
+        char_emb = F.relu(char_emb)
         char_emb, _ = torch.max(char_emb, dim=3)  # batch x emb x time
         char_emb = char_emb.permute(0, 2, 1)  # batch x time x emb
         emb = torch.cat([char_emb, word_emb], dim=2)
@@ -1342,7 +1433,8 @@ class GraphConvolution(torch.nn.Module):
         super(GraphConvolution, self).__init__()
         self.in_features = in_features
         self.out_features = out_features
-        self.weight = torch.nn.Linear(self.in_features, self.out_features, bias=False)
+        self.weight = torch.nn.Linear(
+            self.in_features, self.out_features, bias=False)
         if bias:
             self.bias = torch.nn.Parameter(torch.FloatTensor(out_features))
         else:
@@ -1366,8 +1458,8 @@ class GraphConvolution(torch.nn.Module):
 
     def __repr__(self):
         return self.__class__.__name__ + ' (' \
-               + str(self.in_features) + ' -> ' \
-               + str(self.out_features) + ')'
+            + str(self.in_features) + ' -> ' \
+            + str(self.out_features) + ')'
 
 
 class StackedGraphConvolution(torch.nn.Module):
@@ -1417,25 +1509,36 @@ class PointerSoftmax(torch.nn.Module):
         target_len = target_source_attention.size(1)
         source_len = target_source_attention.size(2)
 
-        switch = self.pointer_softmax_context(target_source_representations)  # batch x trg_len x hid
-        switch = switch  + self.pointer_softmax_target(target_target_representations)  # batch x trg_len x hid
+        switch = self.pointer_softmax_context(
+            target_source_representations)  # batch x trg_len x hid
+        # batch x trg_len x hid
+        switch = switch + \
+            self.pointer_softmax_target(target_target_representations)
         switch = torch.tanh(switch)
         switch = switch * target_mask.unsqueeze(-1)
-        switch = self.pointer_softmax_squash(switch).squeeze(-1)  # batch x trg_len
+        switch = self.pointer_softmax_squash(
+            switch).squeeze(-1)  # batch x trg_len
         switch = torch.sigmoid(switch)
         switch = switch * target_mask  # batch x target len
         switch = switch.unsqueeze(-1)  # batch x target len x 1
 
-        target_source_attention = target_source_attention * source_mask.unsqueeze(1)
+        target_source_attention = target_source_attention * \
+            source_mask.unsqueeze(1)
         from_vocab = trg_decoder_output  # batch x target len x vocab
-        from_source = torch.autograd.Variable(torch.zeros(batch_size * target_len, from_vocab.size(-1)))  # batch x target len x vocab
+        from_source = torch.autograd.Variable(torch.zeros(
+            batch_size * target_len, from_vocab.size(-1)))  # batch x target len x vocab
         if from_vocab.is_cuda:
             from_source = from_source.cuda()
-        input_source = input_source.unsqueeze(1).expand(batch_size, target_len, source_len)
-        input_source = input_source.contiguous().view(batch_size * target_len, -1)  # batch*target_len x source_len
-        from_source = from_source.scatter_add_(1, input_source, target_source_attention.view(batch_size * target_len, -1))
-        from_source = from_source.view(batch_size, target_len, -1)  # batch x target_len x vocab
-        merged = switch * from_vocab + (1.0 - switch) * from_source  # batch x target_len x vocab
+        input_source = input_source.unsqueeze(1).expand(
+            batch_size, target_len, source_len)
+        input_source = input_source.contiguous().view(
+            batch_size * target_len, -1)  # batch*target_len x source_len
+        from_source = from_source.scatter_add_(
+            1, input_source, target_source_attention.view(batch_size * target_len, -1))
+        # batch x target_len x vocab
+        from_source = from_source.view(batch_size, target_len, -1)
+        # batch x target_len x vocab
+        merged = switch * from_vocab + (1.0 - switch) * from_source
         merged = merged * target_mask.unsqueeze(-1)
         return merged
 
@@ -1455,10 +1558,13 @@ class RelationalGraphConvolution(torch.nn.Module):
         self.num_bases = num_bases
 
         if self.num_bases > 0:
-            self.bottleneck_layer = torch.nn.Linear((self.entity_input_dim + self.relation_input_dim) * self.num_relations, self.num_bases, bias = False)
-            self.weight = torch.nn.Linear(self.num_bases, self.out_dim, bias=False)
+            self.bottleneck_layer = torch.nn.Linear(
+                (self.entity_input_dim + self.relation_input_dim) * self.num_relations, self.num_bases, bias=False)
+            self.weight = torch.nn.Linear(
+                self.num_bases, self.out_dim, bias=False)
         else:
-            self.weight = torch.nn.Linear((self.entity_input_dim + self.relation_input_dim) * self.num_relations, self.out_dim, bias=False)
+            self.weight = torch.nn.Linear(
+                (self.entity_input_dim + self.relation_input_dim) * self.num_relations, self.out_dim, bias=False)
         if bias:
             self.bias = torch.nn.Parameter(torch.FloatTensor(self.out_dim))
         else:
@@ -1476,10 +1582,14 @@ class RelationalGraphConvolution(torch.nn.Module):
         # adj:   batch x num_relations x num_entity x num_entity
         supports = []
         for relation_idx in range(self.num_relations):
-            _r_features = relation_features[:, relation_idx: relation_idx + 1]  # batch x 1 x in_dim
-            _r_features = _r_features.repeat(1, node_features.size(1), 1)  # batch x num_entity x in_dim
-            supports.append(torch.bmm(adj[:, relation_idx], torch.cat([node_features, _r_features], dim=-1)))  # batch x num_entity x in_dim+in_dim
-        supports = torch.cat(supports, dim=-1)  # batch x num_entity x (in_dim+in_dim)*num_relations
+            # batch x 1 x in_dim
+            _r_features = relation_features[:, relation_idx: relation_idx + 1]
+            _r_features = _r_features.repeat(
+                1, node_features.size(1), 1)  # batch x num_entity x in_dim
+            supports.append(torch.bmm(adj[:, relation_idx], torch.cat(
+                [node_features, _r_features], dim=-1)))  # batch x num_entity x in_dim+in_dim
+        # batch x num_entity x (in_dim+in_dim)*num_relations
+        supports = torch.cat(supports, dim=-1)
         if self.num_bases > 0:
             supports = self.bottleneck_layer(supports)
         output = self.weight(supports)  # batch x num_entity x out_dim
@@ -1513,9 +1623,11 @@ class StackedRelationalGraphConvolution(torch.nn.Module):
             self.stack_highway_connections()
 
     def stack_highway_connections(self):
-        highways = [torch.nn.Linear(self.hidden_dims[i], self.hidden_dims[i]) for i in range(self.nlayers)]
+        highways = [torch.nn.Linear(
+            self.hidden_dims[i], self.hidden_dims[i]) for i in range(self.nlayers)]
         self.highways = torch.nn.ModuleList(highways)
-        self.input_linear = torch.nn.Linear(self.entity_input_dim, self.hidden_dims[0])
+        self.input_linear = torch.nn.Linear(
+            self.entity_input_dim, self.hidden_dims[0])
 
     def stack_gcns(self):
         gcns = [RelationalGraphConvolution(self.entity_input_dim if i == 0 else self.hidden_dims[i - 1], self.relation_input_dim, self.num_relations, self.hidden_dims[i], num_bases=self.num_bases)
@@ -1530,7 +1642,8 @@ class StackedRelationalGraphConvolution(torch.nn.Module):
                     prev = self.input_linear(x)
                 else:
                     prev = x.clone()
-            x = self.gcns[i](x, relation_features, adj)  # batch x num_nodes x hid
+            # batch x num_nodes x hid
+            x = self.gcns[i](x, relation_features, adj)
             if self.real_valued_graph:
                 x = torch.sigmoid(x)
             else:
