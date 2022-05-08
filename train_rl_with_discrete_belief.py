@@ -29,6 +29,7 @@ def train():
     games_dir = "./"
 
     # training game env
+    agent.experiment_tag += f"seed{config['general']['random_seed']}_level{config['rl']['difficulty_level']}_size{config['rl']['training_size']}"
     env, _ = reinforcement_learning_dataset.get_training_game_env(games_dir + config['rl']['data_path'],
                                                                   config['rl']['difficulty_level'],
                                                                   config['rl']['training_size'],
@@ -68,7 +69,9 @@ def train():
     running_avg_dqn_loss = HistoryScoreCache(capacity=500)
     running_avg_game_rewards = HistoryScoreCache(capacity=500)
 
-    json_file_name = agent.experiment_tag.replace(" ", "_")
+    json_file_name = agent.experiment_tag.replace(
+        " ", "_") + f"_{config['rl']['difficulty_level']}" + \
+        f"_{config['general']['random_seed']}_size{config['rl']['training_size']}"
     best_train_performance_so_far, best_eval_performance_so_far = 0.0, 0.0
     prev_performance = 0.0
 

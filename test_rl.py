@@ -13,13 +13,15 @@ import reinforcement_learning_dataset
 def run_eval():
 
     config = generic.load_config()
+    config['general']['checkpoint']['load_pretrained'] = True
     agent = Agent(config)
-    output_dir = "."
+    output_dir = f"thesis-results/level-{config['rl']['difficulty_level']}"
     data_dir = "."
 
     # make game environments
     requested_infos = agent.select_additional_infos()
     games_dir = "./"
+    agent.experiment_tag += f"cont_seed{config['general']['random_seed']}_level{config['rl']['difficulty_level']}_size{config['rl']['training_size']}"
 
     eval_env, num_eval_game = reinforcement_learning_dataset.get_evaluation_game_env(games_dir + config['rl']['data_path'],
                                                                                      config['rl']['difficulty_level'],
@@ -31,7 +33,7 @@ def run_eval():
     json_file_name = agent.experiment_tag.replace(" ", "_")
     # load pretrained models
     agent.load_pretrained_model(
-        agent.load_from_tag + ".pt", load_partial_graph=False)
+        output_dir + '/' + agent.experiment_tag + "_model.pt", load_partial_graph=False)
 
     # evaluate
     if agent.real_valued_graph:
@@ -60,7 +62,7 @@ def run_eval():
                      "detailed scores": detailed_scores})
     diff = config['rl']['difficulty_level']
     seed = config['general']['random_seed']
-    with open(output_dir + "/" + json_file_name + f'test_{diff}_{seed}.json', 'a+') as outfile:
+    with open(output_dir + "/" + json_file_name + f'test_{diff}_{seed}_s{config["rl"]["training_size"]}.json', 'a+') as outfile:
         outfile.write(_s + '\n')
         outfile.flush()
 

@@ -60,8 +60,8 @@ def evaluate_with_ground_truth_graph(env, agent, num_games):
         for step_no in range(agent.eval_max_nb_steps_per_episode):
 
             # choose what to do next from candidate list
-            chosen_actions, chosen_indices, prev_h, prev_c = agent.act_greedy(
-                observation_strings, current_triplets, action_candidate_list, prev_h, prev_c)
+            chosen_actions, chosen_indices, prev_h, prev_c = agent.act(
+                observation_strings, current_triplets, action_candidate_list, prev_h, prev_c, eps=0.15)
             # send chosen actions to game engine
             chosen_actions_before_parsing = [item[idx] for item, idx in zip(
                 infos["admissible_commands"], chosen_indices)]
@@ -353,11 +353,14 @@ def evaluate_rl_with_real_graphs(env, agent, num_games):
     game_name_list = []
     game_max_score_list = []
     game_id = 0
+    expose_data = defaultdict(list)
     while(True):
         if game_id >= num_games:
             break
         obs, infos = env.reset()
         # filter look and examine actions
+        for i, info in enumerate(infos['game']):
+            expose_data[i].append(info.walkthrough)
         for commands_ in infos["admissible_commands"]:
             for cmd_ in [cmd for cmd in commands_ if cmd != "examine cookbook" and cmd.split()[0] in ["examine", "look"]]:
                 commands_.remove(cmd_)
@@ -392,8 +395,8 @@ def evaluate_rl_with_real_graphs(env, agent, num_games):
 
             new_adjacency_matrix, new_graph_hidden_state = agent.generate_adjacency_matrix_for_rl(
                 observation_strings, chosen_actions, prev_graph_hidden_state)
-            chosen_actions, chosen_indices, prev_h, prev_c = agent.act_greedy(
-                observation_strings, new_adjacency_matrix, action_candidate_list, previous_h=prev_h, previous_c=prev_c)
+            chosen_actions, chosen_indices, prev_h, prev_c = agent.act(
+                observation_strings, new_adjacency_matrix, action_candidate_list, previous_h=prev_h, previous_c=prev_c, eps=.15)
             # send chosen actions to game engine
             chosen_actions_before_parsing = [item[idx] for item, idx in zip(
                 infos["admissible_commands"], chosen_indices)]
@@ -409,6 +412,11 @@ def evaluate_rl_with_real_graphs(env, agent, num_games):
                 obs, infos, prev_actions=chosen_actions, prev_facts=prev_game_facts, return_gt_commands=True)
             chosen_actions_before_parsing = chosen_actions  # for adj_for_mp
 
+            for i in range(20):
+                if step_no == 0:
+                    expose_data[i].append(chosen_actions[i])
+                elif still_running_mask[-1][i]:
+                    expose_data[i].append(chosen_actions[i])
             still_running = [1.0 - float(item)
                              for item in prev_step_dones]  # list of float
             prev_step_dones = dones
@@ -423,6 +431,8 @@ def evaluate_rl_with_real_graphs(env, agent, num_games):
         still_running_mask = np.array(still_running_mask)
         total_game_steps += np.sum(still_running_mask, 0).tolist()
         game_id += batch_size
+    for i in range(20):
+        expose_data[i].append(infos['won'][i])
 
     achieved_game_points = np.array(achieved_game_points, dtype="float32")
     game_max_score_list = np.array(game_max_score_list, dtype="float32")
@@ -441,6 +451,10 @@ def evaluate_rl_with_real_graphs(env, agent, num_games):
     print_strings = "\n".join(print_strings)
     print(print_strings)
     success = np.mean([1 if x else 0 for x in infos['won']])
+    import json
+    with open('test.json', 'w') as f:
+        json.dump(expose_data, f)
+    print(success)
     return np.mean(achieved_game_points), np.mean(normalized_game_points), np.mean(total_game_steps), print_strings, success
 
 

@@ -285,7 +285,8 @@ class Agent:
                 keys = [key for key in pretrained_dict]
                 print(", ".join(keys))
                 print("--------------------------")
-        except:
+        except Exception as e:
+            print(e)
             print("Failed to load checkpoint...")
 
     def load_pretrained_model(self, load_from, load_partial_graph=True):
@@ -319,7 +320,8 @@ class Agent:
             keys = [key for key in pretrained_dict]
             print(", ".join(keys))
             print("--------------------------")
-        except:
+        except Exception as e:
+            print(e)
             print("Failed to load checkpoint...")
 
     def save_model_to_path(self, save_to):
@@ -1447,7 +1449,19 @@ class Agent:
             assert action_mask.size() == action_rank.size(
             ), (action_mask.size().shape, action_rank.size())
             action_rank = action_rank * action_mask
-        action_indices = torch.argmax(action_rank, -1)  # batch
+        if True:
+            ret = torch.tensor([])
+            for b, mask in zip(action_rank, action_mask):
+                tmp = torch.functional.F.softmax(
+                    b / 100).detach().cpu()
+                tmp *= mask.detach().cpu()
+                options = torch.nonzero(torch.isclose(
+                    tmp, tmp.max(), atol=1e-4)).flatten()
+                ret = torch.cat(
+                    (ret, torch.tensor([np.random.choice(options)])))
+            action_indices = torch.tensor(ret).int()
+        else:
+            action_indices = torch.argmax(action_rank, -1)  # batch
         return to_np(action_indices)
 
     def act_greedy(self, observation_strings, graph_input, action_candidate_list, previous_h=None, previous_c=None):
@@ -1480,10 +1494,10 @@ class Agent:
                 action_candidate_list, chosen_indices)]
             return chosen_actions, chosen_indices, new_h, new_c
 
-    def act(self, observation_strings, graph_input, action_candidate_list, previous_h=None, previous_c=None, random=False):
+    def act(self, observation_strings, graph_input, action_candidate_list, previous_h=None, previous_c=None, random=False, eps=None):
 
         with torch.no_grad():
-            if self.mode == "eval":
+            if self.mode == "eval" and eps is None:
                 return self.act_greedy(observation_strings, graph_input, action_candidate_list, previous_h, previous_c)
             if random:
                 return self.act_random(observation_strings, graph_input, action_candidate_list, previous_h, previous_c)
@@ -1501,8 +1515,13 @@ class Agent:
 
             # random number for epsilon greedy
             rand_num = np.random.uniform(low=0.0, high=1.0, size=(batch_size,))
-            less_than_epsilon = (rand_num < self.epsilon).astype(
-                "float32")  # batch
+            if eps is not None:
+                less_than_epsilon = (rand_num < eps).astype(
+                    "float32")  # batch
+            else:
+                less_than_epsilon = (rand_num < self.epsilon).astype(
+                    "float32")  # batch
+
             greater_than_epsilon = 1.0 - less_than_epsilon
 
             chosen_indices = less_than_epsilon * action_indices_random + \

@@ -13,10 +13,10 @@ from graph_dataset import GraphDataset
 class CommandGenerationData(gym.Env):
 
     FILENAMES_MAP = {
-        "train": "train.json",
-        "valid": "valid.json",
-        "test": "test.json"
-        }
+        "train": "train_aug.json",
+        "valid": "valid_aug.json",
+        "test": "test_aug.json"
+    }
 
     def __init__(self, config):
         self.rng = None
@@ -31,7 +31,7 @@ class CommandGenerationData(gym.Env):
                 "observation_strings": [],
                 "previous_triplets": [],
                 "target_commands": [],
-                }
+            }
             self.load_dataset_for_cmd_gen(split)
 
         print("loaded dataset from {} ...".format(self.data_path))
@@ -56,10 +56,12 @@ class CommandGenerationData(gym.Env):
             observation = "{feedback} <sep> {action}".format(feedback=example["observation"],
                                                              action=example["previous_action"])
             # Need to sort target commands to enable the seq2seq model to learn the ordering.
-            target_commands = " <sep> ".join(sort_target_commands(example["target_commands"]))
+            target_commands = " <sep> ".join(
+                sort_target_commands(example["target_commands"]))
 
             self.dataset[split]["observation_strings"].append(observation)
-            self.dataset[split]["previous_triplets"].append(example["previous_graph_seen"])
+            self.dataset[split]["previous_triplets"].append(
+                example["previous_graph_seen"])
             self.dataset[split]["target_commands"].append(target_commands)
 
     def read_config(self):
@@ -107,7 +109,8 @@ class CommandGenerationData(gym.Env):
         decompress = self.dataset[self.split]["graph_dataset"].decompress
         for idx in indices:
             observation_strings.append(self.data["observation_strings"][idx])
-            previous_triplets.append(decompress(self.data["previous_triplets"][idx]))
+            previous_triplets.append(decompress(
+                self.data["previous_triplets"][idx]))
             target_commands.append(self.data["target_commands"][idx])
 
         return observation_strings, previous_triplets, target_commands
@@ -120,4 +123,3 @@ class CommandGenerationData(gym.Env):
 
     def seed(self, seed):
         self.rng = np.random.RandomState(seed)
-
