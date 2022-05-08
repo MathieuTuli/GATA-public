@@ -21,7 +21,8 @@ def run_eval():
     # make game environments
     requested_infos = agent.select_additional_infos()
     games_dir = "./"
-    agent.experiment_tag += f"cont_seed{config['general']['random_seed']}_level{config['rl']['difficulty_level']}_size{config['rl']['training_size']}"
+    tt = 'cont' if config['general']['checkpoint']['load_graph_generation_model_from_tag'] == 'gata_pretrain_obs_infomax_model' else 'disc'
+    agent.experiment_tag += f"{tt}_seed{config['general']['random_seed']}_level{config['rl']['difficulty_level']}_size{config['rl']['training_size']}"
 
     eval_env, num_eval_game = reinforcement_learning_dataset.get_evaluation_game_env(games_dir + config['rl']['data_path'],
                                                                                      config['rl']['difficulty_level'],
