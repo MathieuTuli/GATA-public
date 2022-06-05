@@ -1449,7 +1449,7 @@ class Agent:
             assert action_mask.size() == action_rank.size(
             ), (action_mask.size().shape, action_rank.size())
             action_rank = action_rank * action_mask
-        if True:
+        if self.mode != 'train':
             ret = torch.tensor([])
             for b, mask in zip(action_rank, action_mask):
                 tmp = torch.functional.F.softmax(
